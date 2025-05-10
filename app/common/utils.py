@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+import os
 
 from app.common.config import config
 
@@ -178,7 +179,7 @@ def get_date(url=None):
         current_index += 1
 
     if len(result_dict) != 0:
-        with open('Appdata/activity_date.json', 'w') as f:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../Appdata/activity_date.json'), 'w') as f:
             json.dump(result_dict, f, indent=4)
         return result_dict
     else:

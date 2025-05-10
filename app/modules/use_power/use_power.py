@@ -171,9 +171,7 @@ class UsePowerModule:
                                                is_log=self.is_log):
                         time.sleep(0.5)
                         continue
-                    if not confirm_flag and self.auto.click_element('深渊', 'text', crop=chasm_pos, n=50,
-                                                                    is_log=self.is_log):
-                        confirm_flag = True
+                    if self.auto.click_element('深渊', 'text', crop=chasm_pos, n=50, is_log=self.is_log) or self.auto.find_element('app/resource/images/use_power/chasm.png', 'image', crop=chasm_pos, n=50, is_log=self.is_log):
                         time.sleep(0.7)
                         continue
 

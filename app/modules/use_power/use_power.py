@@ -57,7 +57,7 @@ class UsePowerModule:
                     crop=(387 / 2560, 409 / 1440, 1023 / 2560, 495 / 1440))
                 self.auto.perform_ocr(image=crop_image, is_log=self.is_log)
                 # 更新colon
-                has_colon = any(':' in item[0] for item in self.auto.ocr_result)
+                has_colon = any(':' in item[0] for item in self.auto.ocr_result) or any('.' in item[0] for item in self.auto.ocr_result)
                 # print(f"{has_colon=}")
                 has_day = any('天' in item[0] for item in self.auto.ocr_result)
                 # 没有能使用的体力
@@ -65,7 +65,7 @@ class UsePowerModule:
                     break
                 # 存在低于一天的体力药,并且进入了选择体力界面
                 if has_colon:
-                    if self.auto.click_element([':', '：'], 'text',
+                    if self.auto.click_element([':', '：', '.'], 'text',
                                                crop=(387 / 2560, 409 / 1440, 1023 / 2560, 495 / 1440)):
                         confirm_flag = True
                         continue

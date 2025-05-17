@@ -160,7 +160,7 @@ class UsePowerModule:
                     if self.auto.click_element('完成', 'text', crop=(880 / 1920, 968 / 1080, 1033 / 1920, 1024 / 1080),
                                                is_log=self.is_log):
                         continue
-                    if self.auto.click_element('等级提升', 'text', crop=(824 / 1920, 0, 1089 / 1920, 129 / 1080),
+                    if self.auto.click_element('等级提升', 'text', crop=(1080 / 1920, 350 / 1080, 1350 / 1920, 440 / 1080),
                                                is_log=self.is_log):
                         continue
                     if self.auto.click_element('最大', 'text', crop=(1221 / 1920, 679 / 1080, 1354 / 1920, 756 / 1080),

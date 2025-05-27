@@ -179,6 +179,11 @@ class CollectSuppliesModule:
                                           is_log=self.is_log):
                     finish_flag = True
                     continue
+                # 已经全部收取完毕啦
+                if self.auto.find_element('已经', 'text', crop=(810 / 1920, 520 / 1080, 875 / 1920, 560 / 1080),
+                                          is_log=self.is_log):
+                    finish_flag = True
+                    continue
                 time.sleep(3)
                 continue
             if self.auto.click_element('基地', 'text', crop=(2130 / 2560, 913 / 1440, 2217 / 2560, 977 / 1440),

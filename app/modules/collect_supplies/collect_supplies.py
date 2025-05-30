@@ -174,13 +174,9 @@ class CollectSuppliesModule:
                                        is_log=self.is_log):
                 time.sleep(1.5)
                 self.auto.take_screenshot()
-                # 信源断片已达上限，无法继续获取
-                if self.auto.find_element('断片', 'text', crop=(1077 / 2560, 686 / 1440, 1170 / 2560, 750 / 1440),
-                                          is_log=self.is_log):
-                    finish_flag = True
-                    continue
-                # 已经全部收取完毕啦
-                if self.auto.find_element('已经', 'text', crop=(810 / 1920, 520 / 1080, 875 / 1920, 560 / 1080),
+                # 无法获取时
+                if self.auto.find_element(['已经', '上线', '断片'], 'text',
+                                          crop=(979 / 2560, 687 / 1440, 1592 / 2560, 750 / 1440),
                                           is_log=self.is_log):
                     finish_flag = True
                     continue

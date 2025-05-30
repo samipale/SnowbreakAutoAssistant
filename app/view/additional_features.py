@@ -18,6 +18,7 @@ from app.common.utils import get_all_children
 from app.modules.alien_guardian.alien_guardian import AlienGuardianModule
 from app.modules.fishing.fishing import FishingModule
 from app.modules.jigsaw.jigsaw import JigsawModule
+from app.modules.massaging.massaging import MassagingModule
 from app.modules.maze.maze import MazeModule
 from app.modules.routine_action.routine_action import ActionModule
 from app.modules.water_bomb.water_bomb import WaterBombModule
@@ -41,6 +42,7 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
         self.is_running_water_bomb = False
         self.is_running_alien_guardian = False
         self.is_running_maze = False
+        self.is_running_massaging = False
         self.color_pixmap = None
         self.hsv_value = None
         self.jigsaw_solution_pixmap = None
@@ -63,12 +65,14 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
                                      onClick=lambda: self.stackedWidget.setCurrentWidget(self.page_alien_guardian))
         self.SegmentedWidget.addItem(self.page_maze.objectName(), '迷宫',
                                      onClick=lambda: self.stackedWidget.setCurrentWidget(self.page_maze))
+        self.SegmentedWidget.addItem(self.page_massaging.objectName(), '按摩',
+                                     onClick=lambda: self.stackedWidget.setCurrentWidget(self.page_massaging))
         self.SegmentedWidget.setCurrentItem(self.page_fishing.objectName())
         self.stackedWidget.setCurrentIndex(0)
         self.ComboBox_fishing_mode.addItems(
             ["高性能（cpu性能足够时使用，准确率高）", "低性能（检测频率较低时使用，准确率较低）"])
         self.BodyLabel_tip_fish.setText(
-            "### 提示\n* 为实现纯后台，不支持鼠标侧键\n* 珍奇钓鱼点每天最多钓25次\n* 稀有钓鱼点每天最多钓50次\n* 普通钓鱼点无次数限制\n* 当一个钓鱼点钓完后需要手动移动到下一个钓鱼点，进入钓鱼界面后再启动一次\n* 当黄色块数异常时尝试上面的校准HSV，钓鱼出现圆环时点`校准颜色`，然后点黄色区域\n")
+            "### 提示\n* 为实现纯后台，现已不支持鼠标侧键\n* 钓鱼角色选择分析员，否则无法正常工作\n* 根据游戏右下角手动设置好抛竿按键、钓鱼次数和鱼饵类型后再点开始\n* 珍奇钓鱼点每天最多钓25次\n* 稀有钓鱼点每天最多钓50次\n* 普通钓鱼点无次数限制\n* 当一个钓鱼点钓完后需要手动移动到下一个钓鱼点，进入钓鱼界面后再启动一次\n* 当黄色块数异常时尝试上面的校准HSV，钓鱼出现圆环时点`校准颜色`，然后点黄色区域\n")
         self.BodyLabel_tip_action.setText(
             "### 提示\n* 自动完成常规行动，在看板娘页面点击开始\n* 重复刷指定次数实战训练第一关，不消耗体力\n* 用于完成凭证20次常规行动周常任务")
         self.BodyLabel_tip_jigsaw.setText(
@@ -78,17 +82,21 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
         self.BodyLabel_tip_alien.setText(
             "### 提示\n* 开始战斗后再点击开始\n* 常驻伙伴推荐带钢珠和炽热投手\n* 闯关模式为半自动一关一关打。需要手动开枪，手动选择下一关")
         self.BodyLabel_tip_maze.setText(
-            "### 提示\n* 本功能只适用于增益迷宫（新迷宫），而非老迷宫\n* 运行模式中单次运行适合打前3关，重复运行则是一直刷最后一关\n* 进配队界面后选好增益后再点击SAA的开始迷宫\n* 增益推荐配技能-爆电和护盾-夺取\n* 配队必须要有辰星-琼弦，且把角色放在中间位\n* 辅助有豹豹上豹豹防止暴毙)")
+            "### 提示\n* 本功能只适用于增益迷宫（新迷宫），而非老迷宫\n* 运行模式中单次运行适合打前3关，重复运行则是一直刷最后一关\n* 进配队界面选好增益后再点击SAA的开始迷宫\n* 增益推荐配技能-爆电和护盾-夺取\n* 配队必须要有辰星-琼弦，且把角色放在中间位\n* 辅助有豹豹上豹豹防止暴毙")
+        self.BodyLabel_tip_massaging.setText(
+            "### 提示\n* 使用本功能建议按摩等级大于等于4级")
         # 设置combobox选项
         lure_type_items = ['万能鱼饵', '普通鱼饵', '豪华鱼饵', '至尊鱼饵', '重量级鱼类虫饵', '巨型鱼类虫饵',
                            '重量级鱼类夜钓虫饵', '巨型鱼类夜钓虫饵']
         run_items = ["切换疾跑", "按住疾跑"]
         mode_items = ["无尽模式", "闯关模式"]
         mode_maze_items = ["单次运行", "重复运行"]
+        wife_items = ["凯茜娅", "肴", "芬妮", "里芙", "安卡希雅"]
         self.ComboBox_run.addItems(run_items)
         self.ComboBox_lure_type.addItems(lure_type_items)
         self.ComboBox_mode.addItems(mode_items)
         self.ComboBox_mode_maze.addItems(mode_maze_items)
+        self.ComboBox_wife.addItems(wife_items)
 
         self.update_label_color()
         # self.color_pixmap = self.generate_pixmap_from_hsv(hsv_value)
@@ -107,13 +115,14 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
     def _connect_to_slot(self):
         # 反向链接
         self.stackedWidget.currentChanged.connect(self.onCurrentIndexChanged)
-
+        # 按钮信号
         self.PushButton_start_fishing.clicked.connect(self.on_fishing_button_click)
         self.PushButton_start_action.clicked.connect(self.on_action_button_click)
         self.PushButton_start_jigsaw.clicked.connect(self.on_jigsaw_button_click)
         self.PushButton_start_water_bomb.clicked.connect(self.on_water_bomb_button_click)
         self.PushButton_start_alien_guardian.clicked.connect(self.on_alien_guardian_button_click)
         self.PushButton_start_maze.clicked.connect(self.on_maze_button_click)
+        self.PushButton_start_massaging.clicked.connect(self.on_massaging_button_click)
 
         # 链接各种需要保存修改的控件
         self._connect_to_save_changed()
@@ -175,6 +184,7 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
         elif isinstance(widget, LineEdit):
             # 如果是钓鱼相关的lineEdit
             if widget.objectName().split('_')[1] == 'fish':
+                # 钓鱼按键
                 if widget.objectName().split('_')[2] == 'key':
                     config.set(getattr(config, widget.objectName(), None), widget.text())
                 else:
@@ -327,11 +337,12 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
 
     def update_fish_key(self, key):
         # 添加模糊查询
-        choices = ["ctrl", "space", "shift", "mouse5", "mouse4"]
+        choices = ["ctrl", "space", "shift"]
         best_match = process.extractOne(key, choices)
         if best_match[1] > 60:
             key = best_match[0]
-        self.LineEdit_fish_key.setText(key)
+        self.LineEdit_fish_key.setText(key.lower())
+        self.save_changed(self.LineEdit_fish_key)
 
     def closeEvent(self, event):
         # 恢复原始标准输出
@@ -473,3 +484,24 @@ class Additional(QFrame, Ui_additional_features, BaseInterface):
             self.set_simple_card_enable(self.SimpleCardWidget_maze, True)
             self.PushButton_start_maze.setText('开始迷宫')
             self.is_running_maze = False
+
+    def on_massaging_button_click(self):
+        """钓鱼开始按键的信号处理"""
+        if not self.is_running_massaging:
+            self.redirectOutput(self.textBrowser_log_massaging)
+            self.massaging_task = SubTask(MassagingModule)
+            self.massaging_task.is_running.connect(self.handle_massaging)
+            self.massaging_task.start()
+        else:
+            self.massaging_task.stop()
+
+    def handle_massaging(self, is_running):
+        """钓鱼线程开始与结束的信号处理"""
+        if is_running:
+            self.set_simple_card_enable(self.SimpleCardWidget_massaging, False)
+            self.PushButton_start_massaging.setText('停止按摩')
+            self.is_running_massaging = True
+        else:
+            self.set_simple_card_enable(self.SimpleCardWidget_massaging, True)
+            self.PushButton_start_massaging.setText('开始按摩')
+            self.is_running_massaging = False

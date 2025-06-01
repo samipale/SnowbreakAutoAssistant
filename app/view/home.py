@@ -9,13 +9,13 @@ import win32gui
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtWidgets import QFrame, QWidget, QTreeWidgetItemIterator, QFileDialog
 from qfluentwidgets import FluentIcon as FIF, InfoBar, InfoBarPosition, CheckBox, ComboBox, ToolButton, LineEdit, \
-    BodyLabel, ProgressBar
+    BodyLabel, ProgressBar, FlyoutView, Flyout, PushButton
 
 from app.common.config import config
 from app.common.logger import original_stdout, original_stderr, logger
 from app.common.signal_bus import signalBus
 from app.common.style_sheet import StyleSheet
-from app.common.utils import get_all_children, get_hwnd, get_date
+from app.common.utils import get_all_children, get_hwnd, get_date, get_gitee_text
 from app.modules.base_task.base_task import BaseTask
 from app.modules.chasm.chasm import ChasmModule
 from app.modules.collect_supplies.collect_supplies import CollectSuppliesModule
@@ -143,6 +143,8 @@ class Home(QFrame, Ui_home, BaseInterface):
         self.redirectOutput(self.textBrowser_log)
 
         self.get_tips()
+        if config.checkUpdateAtStartUp.value:
+            self.update_online()
 
     def _initWidget(self):
         for tool_button in self.SimpleCardWidget_option.findChildren(ToolButton):
@@ -188,6 +190,7 @@ class Home(QFrame, Ui_home, BaseInterface):
         self.PushButton_no_select.clicked.connect(lambda: no_select(self.SimpleCardWidget_option))
         self.PushButton_select_directory.clicked.connect(self.on_select_directory_click)
         # 版本适配更新
+        self.PrimaryPushButton_tutor.clicked.connect(self.on_update_tutor_click)
         self.PushButton_update_stuff.clicked.connect(lambda: self.on_update_click('stuff'))
         self.PushButton_update_chasm.clicked.connect(lambda: self.on_update_click('chasm'))
 
@@ -246,6 +249,80 @@ class Home(QFrame, Ui_home, BaseInterface):
 
     def set_hwnd(self, hwnd):
         self.game_hwnd = hwnd
+
+    def on_update_tutor_click(self):
+        """显示版本适配教程"""
+        view = FlyoutView(
+            title="如何适配新版本UI",
+            content="如果在设置中勾选了“软件启动时检测更新”，则每次运行SAA这里都会联网更新数据\n如果需要手动更新，先填入新版本任务名，然后通过任意截图工具获取如图所示的坐标值，最后点击底部两个按钮更新。\n或者可以尝试点击下面的按钮联网在线更新",
+            image="asset/update_tutor.png",
+            isClosable=True,
+        )
+        # 添加按钮
+        button = PushButton('更新')
+        button.clicked.connect(self.update_online)
+        button.setFixedWidth(120)
+        view.addWidget(button, align=Qt.AlignRight)
+        # 调整布局
+        view.widgetLayout.insertSpacing(1, 5)
+        view.widgetLayout.addSpacing(5)
+
+        w = Flyout.make(view, self.PrimaryPushButton_tutor, self)
+        view.closed.connect(w.close)
+
+    def update_online(self):
+        """通过gitee在线更新"""
+        text = get_gitee_text("update_data.txt")
+        if config.isLog.value:
+            logger.info(f'获取到更新信息：{text}')
+        if not text:
+            logger.error(f'在线获取更新信息失败')
+            return
+        screen_width, screen_height = pyautogui.size()
+        data = text[0].split("_")
+        if screen_width == data[0]:
+            stuff_x1 = data[1]
+            stuff_y1 = data[2]
+            stuff_x2 = data[3]
+            stuff_y2 = data[4]
+            chasm_x1 = data[5]
+            chasm_y1 = data[6]
+            chasm_x2 = data[7]
+            chasm_y2 = data[8]
+        else:
+            scale = screen_width / float(data[0])
+            # print(scale)
+            stuff_x1 = str(int(float(data[1]) * scale))
+            stuff_y1 = str(int(float(data[2]) * scale))
+            stuff_x2 = str(int(float(data[3]) * scale))
+            stuff_y2 = str(int(float(data[4]) * scale))
+            chasm_x1 = str(int(float(data[5]) * scale))
+            chasm_y1 = str(int(float(data[6]) * scale))
+            chasm_x2 = str(int(float(data[7]) * scale))
+            chasm_y2 = str(int(float(data[8]) * scale))
+        is_update = False
+        config_list = ["LineEdit_task_name",
+                       "LineEdit_stuff_x1", "LineEdit_stuff_y1",
+                       "LineEdit_stuff_x2", "LineEdit_stuff_y2",
+                       "LineEdit_chasm_x1", "LineEdit_chasm_y1",
+                       "LineEdit_chasm_x2", "LineEdit_chasm_y2"]
+        new_data_list = [data[9],
+                         stuff_x1, stuff_y1,
+                         stuff_x2, stuff_y2,
+                         chasm_x1, chasm_y1,
+                         chasm_x2, chasm_y2]
+        for i in range(9):
+            config_item = getattr(config, config_list[i], None)
+            if str(config_item.value) != new_data_list[i]:
+                # 存在一个改变了都为true
+                is_update = True
+                widget = self.page_2.findChild(LineEdit, config_list[i])
+                widget.setText(new_data_list[i])
+                widget.editingFinished.emit()
+
+        if is_update:
+            self.on_update_click('stuff')
+            self.on_update_click('chasm')
 
     def on_select_directory_click(self):
         """ 选择启动器路径 """
@@ -474,12 +551,19 @@ class Home(QFrame, Ui_home, BaseInterface):
         items_list = []
         try:
             for key, value in tips_dic.items():
-                # 创建label
-                BodyLabel_tip = BodyLabel(self.scrollAreaWidgetContents_tips)
-                BodyLabel_tip.setObjectName(f"BodyLabel_tip_{index + 1}")
-                # 创建进度条
-                ProgressBar_tip = ProgressBar(self.scrollAreaWidgetContents_tips)
-                ProgressBar_tip.setObjectName(f"ProgressBar_tip{index + 1}")
+                if self.SimpleCardWidget_tips.findChild(BodyLabel, name=f"BodyLabel_tip_{index + 1}"):
+                    BodyLabel_tip = self.SimpleCardWidget_tips.findChild(BodyLabel, name=f"BodyLabel_tip_{index + 1}")
+                else:
+                    # 创建label
+                    BodyLabel_tip = BodyLabel(self.scrollAreaWidgetContents_tips)
+                    BodyLabel_tip.setObjectName(f"BodyLabel_tip_{index + 1}")
+                if self.SimpleCardWidget_tips.findChild(ProgressBar, name=f"ProgressBar_tip{index + 1}"):
+                    ProgressBar_tip = self.SimpleCardWidget_tips.findChild(ProgressBar,
+                                                                           name=f"ProgressBar_tip{index + 1}")
+                else:
+                    # 创建进度条
+                    ProgressBar_tip = ProgressBar(self.scrollAreaWidgetContents_tips)
+                    ProgressBar_tip.setObjectName(f"ProgressBar_tip{index + 1}")
                 if value[0] == 0:
                     BodyLabel_tip.setText(f"{key}已结束")
                 else:

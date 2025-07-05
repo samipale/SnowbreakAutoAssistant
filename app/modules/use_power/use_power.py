@@ -196,7 +196,7 @@ class UsePowerModule:
                             break
                     if self.auto.click_element('任务', 'text', crop=(0, 1280 / 1440, 1, 1),
                                                is_log=self.is_log):
-                        time.sleep(0.2)
+                        time.sleep(0.5)
                         continue
                     else:
                         task_name = config.LineEdit_task_name.value

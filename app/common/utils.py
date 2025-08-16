@@ -5,11 +5,11 @@ from pathlib import Path
 import cpufeature
 import cv2
 import numpy as np
+import requests
 import win32api
 import win32con
 import win32gui
 from bs4 import BeautifulSoup
-
 from requests import Timeout, RequestException
 
 from app.common.config import config

@@ -16,10 +16,10 @@
 /build/
 /AppData/scale_cache.json
 /AppData/activity_date.json
-
-*.pyc
 *.ico
 *.lnk
 __pycache__/
 nuitka-crash-report.xml
 .venv/
+*.pyc
+saa.cmd

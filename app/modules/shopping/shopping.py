@@ -2,7 +2,6 @@ import time
 
 from app.common.config import config
 from app.modules.automation.timer import Timer
-from app.modules.base_task.base_task import BaseTask
 
 
 class ShoppingModule:
@@ -98,7 +97,8 @@ class ShoppingModule:
             if text:
                 if not is_selected:  # 当前没有选择任何商品
                     # 如果当前还有售罄动画存在
-                    if self.auto.find_element('售罄', 'text', crop=(866 / 1920, 513 / 1080, 1048 / 1920, 880 / 1080),
+                    if self.auto.find_element(['售', '罄'], 'text',
+                                              crop=(850 / 1920, 500 / 1080, 1070 / 1920, 900 / 1080),
                                               is_log=self.is_log):
                         continue
                     if self.auto.click_element(text, 'text', crop=(302 / 1920, 194 / 1080, 1, 1), is_log=self.is_log):
@@ -140,7 +140,8 @@ class ShoppingModule:
                         continue
                 else:  # 没选择成功或者售罄
                     is_selected = False
-                    if self.auto.find_element('售罄', 'text', crop=(866 / 1920, 513 / 1080, 1048 / 1920, 880 / 1080),
+                    if self.auto.find_element(['售', '罄'], 'text',
+                                              crop=(850 / 1920, 500 / 1080, 1070 / 1920, 900 / 1080),
                                               is_log=self.is_log):
                         finish_list.append(text)
                         # 更新text
@@ -185,15 +186,5 @@ class ShoppingModule:
         return result_list
 
     def scroll_to_bottom(self):
-        timeout = Timer(20).start()
-        while True:
+        for _ in range(3):
             self.auto.mouse_scroll(int(1552 / self.auto.scale_x), int(537 / self.auto.scale_y), -1200)
-            self.auto.take_screenshot()
-
-            if self.auto.find_element("光纤轴突", "text", crop=(319 / 1920, 864 / 1080, 1861 / 1920, 1037 / 1080),
-                                          is_log=self.is_log):
-                break
-            if timeout.reached():
-                self.logger.error(
-                    "滚动商店超时：未识别到“光纤轴突”，可尝试在设置中打开显示ocr识别结果，如果识别到有错别字，再去替换表添加错别字规则")
-                break

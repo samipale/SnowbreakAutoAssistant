@@ -1,6 +1,9 @@
 import time
 
+import win32gui
+
 from app.common.config import config
+from app.common.data_models import parse_config_update_data
 from app.common.utils import random_rectangle_point
 from app.modules.automation.timer import Timer
 
@@ -29,16 +32,30 @@ class UsePowerModule:
         :param name: "stuff" or "chasm"
         :return: (x,y)
         """
+        config_data = parse_config_update_data(config.update_data.value)
+        if not config_data:
+            self.logger.error("配置数据为空或格式不正确")
+            return None, None
+
+        update_data = config_data.data.updateData
+        # print(update_data.dict())
+
+        online_width = float(update_data.onlineWidth)  # 2560
+        online_height = online_width * 9 / 16  # 1440
+        client_rect = win32gui.GetClientRect(self.auto.hwnd)
+        client_width = client_rect[2] - client_rect[0]  # 1920
+        client_height = client_rect[3] - client_rect[1]  # 1080
+        scale_x = client_width / online_width
+        scale_y = client_height / online_height
         if name == "stuff":
-            x1 = int(config.LineEdit_stuff_x1.value)
-            y1 = int(config.LineEdit_stuff_y1.value)
-            x2 = int(config.LineEdit_stuff_x2.value)
-            y2 = int(config.LineEdit_stuff_y2.value)
+            coords = update_data.stuff
         else:
-            x1 = int(config.LineEdit_chasm_x1.value)
-            y1 = int(config.LineEdit_chasm_y1.value)
-            x2 = int(config.LineEdit_chasm_x2.value)
-            y2 = int(config.LineEdit_chasm_y2.value)
+            coords = update_data.chasm
+
+        x1 = int(float(coords.x1) * scale_x)
+        y1 = int(float(coords.y1) * scale_y)
+        x2 = int(float(coords.x2) * scale_x)
+        y2 = int(float(coords.y2) * scale_y)
         return random_rectangle_point(((x1, y1), (x2, y2)), n=n)
 
     def check_power(self):
@@ -105,7 +122,7 @@ class UsePowerModule:
             if not confirm_flag and not enter_power_select:
                 # if self.auto.click_element('app/resource/images/use_power/stamina.png', 'image',
                 #                            crop=(833 / 1920, 0, 917 / 1920, 68 / 1080)):
-                self.auto.click_element_with_pos(pos=(int(880 / self.auto.scale_x), int(32 / self.auto.scale_y)))
+                self.auto.click_element_with_pos(pos=(int(910 / self.auto.scale_x), int(35 / self.auto.scale_y)))
                 time.sleep(0.5)
                 continue
             if timeout.reached():
@@ -119,8 +136,22 @@ class UsePowerModule:
         finish_flag = False  # 是否完成体力刷取
         enter_task = False  # 是否进入任务界面
         enter_maneuver_flag = False  # 是否进入活动页面
-        stuff_pos = config.stuff_pos.value
-        chasm_pos = config.chasm_pos.value
+
+        config_data = parse_config_update_data(config.update_data.value)
+        if not config_data:
+            self.logger.error("配置数据为空或格式不正确")
+            return
+
+        update_data = config_data.data.updateData
+        online_width = float(update_data.onlineWidth)
+        online_height = online_width * 9 / 16
+
+        stuff_pos = (float(update_data.stuff.x1) / online_width, float(update_data.stuff.y1) / online_height,
+                     float(update_data.stuff.x2) / online_width,
+                     float(update_data.stuff.y2) / online_height)
+        chasm_pos = (float(update_data.chasm.x1) / online_width, float(update_data.chasm.y1) / online_height,
+                     float(update_data.chasm.x2) / online_width,
+                     float(update_data.chasm.y2) / online_height)
         while True:
             self.auto.take_screenshot()
 
@@ -136,12 +167,11 @@ class UsePowerModule:
                     continue
                 if self.auto.click_element('速战', 'text', crop=(1368 / 1920, 963 / 1080, 1592 / 1920, 1),
                                            is_log=self.is_log):
-                    time.sleep(0.7)
+                    time.sleep(1)
                     enter_maneuver_flag = True
                     continue
-                if self.auto.click_element('材料', 'text', crop=stuff_pos, n=50,
-                                           is_log=self.is_log) or self.auto.click_element(
-                    'app/resource/images/use_power/stuff.png', 'image', crop=stuff_pos, is_log=self.is_log):
+                # 在区域内找材料，没找到就固定点击
+                if self.auto.click_element(['材料', '材', '料'], 'text', crop=stuff_pos, n=50, is_log=self.is_log):
                     time.sleep(0.3)
                     continue
                 else:
@@ -153,12 +183,11 @@ class UsePowerModule:
                                                                                                                   327 / 1080,
                                                                                                                   1529 / 1920,
                                                                                                                   376 / 1080))):
-                        pos = self.get_click_pos("stuff")
+                        pos = self.get_click_pos("stuff")  # 获取点击位置
                         self.auto.click_element_with_pos(pos)
                         time.sleep(0.3)
-                if self.auto.click_element('深渊', 'text', crop=chasm_pos,
-                                           is_log=self.is_log) or self.auto.click_element(
-                        'app/resource/images/use_power/chasm.png', 'image', crop=chasm_pos, is_log=self.is_log):
+                if self.auto.click_element(['深渊', '深', '渊'], 'text', crop=chasm_pos,
+                                           is_log=self.is_log):
 
                     time.sleep(1)
                     continue
@@ -199,7 +228,7 @@ class UsePowerModule:
                         time.sleep(0.5)
                         continue
                     else:
-                        task_name = config.LineEdit_task_name.value
+                        task_name = config.task_name.value
                         if task_name:
                             self.auto.click_element(task_name, 'text', crop=(0, 1280 / 1440, 1, 1), is_log=self.is_log)
                             time.sleep(0.2)
@@ -213,9 +242,19 @@ class UsePowerModule:
                         self.auto.press_key('esc')
                         time.sleep(0.5)
                         continue
+
+                    if self.auto.find_element(["快速", "作战"], 'text',
+                                              crop=(854 / 1920, 214 / 1080, 1054 / 1920, 286 / 1080)):
+                        time.sleep(0.3)
+                        self.auto.click_element_with_pos((int(1289 / self.auto.scale_x), int(732 / self.auto.scale_y)))
+                        time.sleep(0.2)
+                        self.auto.click_element_with_pos((int(980 / self.auto.scale_x), int(851 / self.auto.scale_y)))
+                        time.sleep(0.5)
+                        continue
+
                     if self.auto.click_element('速战', 'text', crop=(1368 / 1920, 963 / 1080, 1592 / 1920, 1),
                                                is_log=self.is_log):
-                        time.sleep(0.7)
+                        time.sleep(1)
                         continue
                     if self.auto.click_element('完成', 'text', crop=(880 / 1920, 968 / 1080, 1033 / 1920, 1024 / 1080),
                                                is_log=self.is_log):
@@ -234,7 +273,6 @@ class UsePowerModule:
                     if self.auto.click_element('深渊', 'text', crop=chasm_pos, n=50, is_log=self.is_log):
                         time.sleep(0.7)
                         continue
-
             if timeout.reached():
                 self.logger.error("使用体力超时")
                 break

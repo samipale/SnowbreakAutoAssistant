@@ -11,6 +11,7 @@
 ![GitHub Release](https://img.shields.io/github/v/release/LaoZhuJackson/SnowbreakAutoAssistant?color=%2329F1FF)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/LaoZhuJackson/SnowbreakAutoAssistant/total?color=%2329F1FF)
 [![Static Badge](https://img.shields.io/badge/QQ_Group-996710620-%2329F1FF)](https://qm.qq.com/q/CIvpwI3qVy)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaoZhuJackson/SnowbreakAutoAssistant)
 
 简体中文 | <a href="docs/README_en.md">English</a>
 </div>
@@ -23,7 +24,7 @@
 > 只适配16:9的屏幕，支持全屏和窗口化，其他比例可以打开设置里的自动缩放功能，会自动将游戏窗口缩放并放在左上角（必须得贴着左上角）
 
 ### ✨功能列表
-<details><summary>点击查看画大饼进度</summary>
+<details><summary>👉 点击查看画大饼进度 👈</summary>
 
 ✅ 登录游戏
 
@@ -61,19 +62,25 @@
 
 ✅ 运行自动缩放比例
 
-✅ 自动更新版本坐标和日程提醒
+✅ 自动更新版本坐标和日程提醒数据
+
+✅ SAA直接启动游戏
+
+✅ 适配n卡和a卡的gpu加速
+
+✅ 开机自启
+
+✅ 体力恢复通知
+
+✅ 自动兑换兑换码
 
 ⬜ 按摩
 
-⬜ 直接启动游戏
+⬜ 更新日志展示
 
-⬜ 开机自启
-
-⬜ 体力恢复通知
+⬜ 全局快捷键
 
 ⬜ 自动抽卡
-
-⬜ 自动兑换兑换码
 
 </details>
 
@@ -81,11 +88,9 @@
 
 > [!Important]
 >
-> 感谢[vmoranv](https://github.com/vmoranv)提供的文档
-> 
 > SAA文档站:https://saadocs.netlify.app/
 
-演示视频:[【基于图像识别的芬妮舞狮尘白自动化代理助手-哔哩哔哩】](https://b23.tv/W9OA85k)
+演示视频：[芬妮舞狮](https://space.bilibili.com/3546763489184642?spm_id_from=333.337.search-card.all.click)
 
 ### ✨ 运行
 
@@ -104,7 +109,8 @@
 - [Github Release](https://github.com/LaoZhuJackson/SnowbreakAutoAssistant/releases)
 
 ## ❤️相关项目
-- OCR文字识别 https://github.com/JaidedAI/EasyOCR
+
+- OCR文字识别 https://github.com/jingsongliujing/OnnxOCR
 - 三月七星穹铁道助手 https://github.com/moesnow/March7thAssistant
 - maa明日方舟助手 https://github.com/MaaAssistantArknights/MaaAssistantArknights
 - 图形界面组件库 https://github.com/zhiyiYo/PyQt-Fluent-Widgets
@@ -120,8 +126,8 @@
 ## 📝License
 
 > [!Note]
-> 
-> MIT License
+>
+> GPLv3 License
 [LICENSE](https://github.com/LaoZhuJackson/SnowbreakAutoAssistant/blob/main/LICENSE)
 
 ## 👍赞助

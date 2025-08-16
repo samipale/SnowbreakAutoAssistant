@@ -1,8 +1,10 @@
 import time
+from datetime import datetime
 
 from app.common.config import config
+from app.common.data_models import parse_config_update_data
+from app.common.utils import get_cloudflare_data
 from app.modules.automation.timer import Timer
-from app.modules.base_task.base_task import BaseTask
 
 
 class CollectSuppliesModule:
@@ -23,6 +25,8 @@ class CollectSuppliesModule:
             self.receive_fish_bait()
         if config.CheckBox_dormitory.value:
             self.receive_dormitory()
+        if config.CheckBox_redeem_code.value:
+            self.redeem_code()
 
         self.friends_power()
         self.station_power()
@@ -110,8 +114,7 @@ class CollectSuppliesModule:
             if self.auto.find_element('获得道具', 'text', crop=(824 / 1920, 0, 1089 / 1920, 129 / 1080),
                                       is_log=self.is_log):
                 break
-            if self.auto.find_element('app/resource/images/reward/home.png', 'image',
-                                      crop=(1635 / 1920, 18 / 1080, 1701 / 1920, 74 / 1080), is_log=self.is_log):
+            else:
                 if click_flag:
                     break
             if self.auto.click_element('批量领取', 'text', crop=(303 / 1920, 982 / 1080, 462 / 1920, 1028 / 1080),
@@ -160,7 +163,7 @@ class CollectSuppliesModule:
                                        is_log=self.is_log):
                 time.sleep(0.3)
                 continue
-            if self.auto.click_element("战斗", "text", crop=(1536 / 1920, 470 / 1080, 1632 / 1920, 516 / 1080),
+            if self.auto.click_element("战斗", "text", crop=(1510 / 1920, 450 / 1080, 1650 / 1920, 530 / 1080),
                                        is_log=self.is_log):
                 time.sleep(0.3)
                 continue
@@ -171,6 +174,7 @@ class CollectSuppliesModule:
         self.auto.back_to_home()
 
     def receive_dormitory(self):
+        """领取宿舍碎片"""
         timeout = Timer(30).start()
         finish_flag = False
         while True:
@@ -208,7 +212,8 @@ class CollectSuppliesModule:
                 time.sleep(3)
                 continue
             if self.auto.find_element('Esc', 'text', crop=(57 / 2560, 117 / 1440, 127 / 2560, 157 / 1440),
-                                      is_log=self.is_log):
+                                      is_log=self.is_log) or self.auto.find_element('Enter', 'text', crop=(
+                    9 / 2560, 1377 / 1440, 130 / 2560, 1431 / 1440), is_log=self.is_log):
                 self.auto.press_key('esc')
                 continue
             if self.auto.click_element(['剩', '剩余'], 'text',
@@ -220,4 +225,91 @@ class CollectSuppliesModule:
                 self.logger.error("领取宿舍拼图超时")
                 break
         self.auto.back_to_home()
-        
+
+    def redeem_code(self):
+        """领取兑换码"""
+        def get_codes():
+            """提取还在有效期内的兑换码"""
+            active_codes = []
+
+            # 检查配置数据是否存在且格式正确
+            config_data = parse_config_update_data(config.update_data.value)
+            if not config_data:
+                self.logger.warning("配置数据为空或格式不正确，无法获取兑换码")
+                return active_codes
+
+            used_codes = config.used_codes.value or []  # 确保不为None
+
+            for code in config_data.data.redeemCodes:
+                # 如果没被使用过才加入兑换
+                if code.code not in used_codes:
+                    active_codes.append(code.code)
+            import_codes = config.import_codes.value or []  # 确保不为None
+            # 加入用户导入
+            for code in import_codes:
+                if code not in used_codes:
+                    active_codes.append(code)
+            return active_codes
+
+        codes = get_codes()
+
+        if not codes or len(codes) == 0:
+            self.logger.info("没有需要兑换的码")
+            return
+
+        index = 0
+        timeout = Timer(120).start()
+        while True:
+            self.auto.take_screenshot()
+
+            # if self.auto.find_element("成功",'text',crop=(733/1920,473/1080,1182/1920,570/1080)):
+            #     pass
+
+            if self.auto.find_element(['礼品', '兑换'], 'text', crop=(823 / 1920, 294 / 1080, 1105 / 1920, 409 / 1080),
+                                      is_log=self.is_log):
+                self.logger.info("开始兑换 " + codes[index])
+                # 点击 文本框
+                self.auto.click_element_with_pos((int(960 / self.auto.scale_x), int(506 / self.auto.scale_y)))
+                # 输入兑换码
+                self.auto.type_string(codes[index])
+                # 确定
+                self.auto.click_element_with_pos((int(1417 / self.auto.scale_x), int(765 / self.auto.scale_y)))
+                # 加入已使用的兑换码列表
+                old_used_codes = config.used_codes.value or []
+                new_used_codes = old_used_codes.copy()
+                new_used_codes.append(codes[index])
+                config.set(config.used_codes, new_used_codes)
+                index += 1
+                time.sleep(3)
+                continue
+
+            if index >= len(codes):
+                self.logger.info("兑换码已全部兑换")
+                self.auto.press_key('esc')
+                break
+            if self.auto.click_element(['前往', '兑换'], 'text',
+                                       crop=(1573 / 1920, 568 / 1080, 1793 / 1920, 660 / 1080),
+                                       is_log=self.is_log):
+                time.sleep(0.7)
+                continue
+
+            if self.auto.find_element('游戏性设置', 'text', crop=(305 / 1920, 23 / 1080, 586 / 1920, 131 / 1080),
+                                      is_log=self.is_log):
+                # 固定坐标点“其他设置”
+                self.auto.click_element_with_pos((int(160 / self.auto.scale_x), int(760 / self.auto.scale_y)))
+                time.sleep(0.3)
+                continue
+
+            if self.auto.find_element('基地', 'text', crop=(
+                    1598 / 1920, 678 / 1080, 1661 / 1920, 736 / 1080), is_log=self.is_log) and self.auto.find_element(
+                '任务', 'text', crop=(
+                        1452 / 1920, 327 / 1080, 1529 / 1920, 376 / 1080), is_log=self.is_log):
+                # 点击右上角齿轮
+                self.auto.click_element_with_pos((int(1864 / self.auto.scale_x), int(33 / self.auto.scale_y)))
+                time.sleep(0.3)
+                continue
+
+            if timeout.reached():
+                self.logger.error("兑换兑换码超时")
+                break
+        self.auto.back_to_home()

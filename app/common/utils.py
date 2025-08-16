@@ -1,4 +1,6 @@
-import traceback
+import os
+import re
+from pathlib import Path
 
 import cpufeature
 import cv2
@@ -6,11 +8,9 @@ import numpy as np
 import win32api
 import win32con
 import win32gui
-import requests
 from bs4 import BeautifulSoup
-import re
-import json
-import os
+
+from requests import Timeout, RequestException
 
 from app.common.config import config
 
@@ -112,32 +112,76 @@ def get_hwnd(window_title, window_class):
     return None
 
 
-def get_date(url=None):
+def fetch_url(url: str, timeout: float = None, encoding: str = None):
+    """
+    通用网络请求函数
+
+    参数:
+        url: 请求的URL
+        timeout: 超时时间（秒）
+        encoding: 手动指定的编码格式
+
+    返回:
+        成功: requests.Response 对象
+        失败: 包含错误信息的字典
+    """
+    headers = {
+        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/134.0.0.0 Safari/537.36"
+    }
+    port = config.update_proxies.value
+    proxies = {
+        "http": f"http://127.0.0.1:{port}",
+        "https": f"http://127.0.0.1:{port}"
+    } if port else None
+
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            proxies=proxies
+        )
+        if encoding:
+            response.encoding = encoding
+        return response
+    except Timeout:
+        return {"error": f"⚠️ 连接超时，请检查网络是否能连接 {url}"}
+    except RequestException as e:
+        return {"error": f"🔌 网络请求 {url} 失败: {e}"}
+    except Exception as e:
+        return {"error": f"❌ 请求 {url} 发生未知错误: {e}"}
+
+
+def get_date_from_api(url=None):
+    """
+    获取具体的活动日期
+    :param url: 尘白官网的内容api接口链接
+    :return: {'爆爆菜园': '07.17-08.21', '噬神斗场': '07.10-08.07', '禁区协议': '07.28-08.11', '激战智域': '08.04-08.18', '勇者游戏': '08.07-08.21', '青之迷狂': '07.10-08.21', '奇迹诺言': '07.24-08.21', '铭心指任': '07.10-08.21', '风行影随': '07.31-08.21'}
+    """
+
     def format_date(date_str):
         """格式化日期字符串为 MM.DD 格式"""
         parts = date_str.split('月')
         month = parts[0].zfill(2)
         day = parts[1].replace('日', '').zfill(2)
         return f"{month}.{day}"
-    # url = 'https://www.cbjq.com/p/zt/2023/04/13/index/news.html?catid=7131&infoid=247'
-    API_URL = "https://www.cbjq.com/api.php?op=search_api&action=get_article_detail&catid=7131&id=282"
+
+    # url = 'https://www.cbjq.com/api.php?op=search_api&action=get_article_detail&catid=7131&id=282'
     API_URL = url
-    headers = {
-        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-    }
-    response = requests.get(API_URL, headers=headers)
-    response.encoding = 'utf-8'  # 或其他合适的编码
-    # print(response.status_code)
-    # print(response.text)  # 查看原始响应内容
+    response = fetch_url(API_URL, timeout=3, encoding='utf-8')
+
+    if isinstance(response, dict):  # 错误处理
+        return response
     if response.status_code != 200:
         return {"error": f"请求失败，状态码: {response.status_code}"}
 
     try:
         data = response.json()
-        content_html = data["data"][0]["content"]  # 获取活动内容HTML
-    except Exception as e:
-        # print(traceback.print_exc())
-        return {"error": f"数据解析失败: {str(e)}"}
+        content_html = data["data"][0]["content"]
+    except (KeyError, IndexError, ValueError) as e:
+        return {"error": f"❌ 解析JSON数据失败: {e}"}
 
     soup = BeautifulSoup(content_html, 'html.parser')
     paragraphs = soup.find_all('p')
@@ -280,28 +324,140 @@ def get_gitee_text(text_path: str):
             失败: None
     """
     url = f"https://gitee.com/laozhu520/auto_chenbai/raw/main/{text_path}"
-    headers = {
-        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-    }
-    response = requests.get(url, headers=headers)
+    response = fetch_url(url, timeout=3)
 
+    if isinstance(response, dict):  # 错误处理
+        return response
     if response.status_code != 200:
         print(f"请求失败，状态码: {response.status_code}")
         return None
+
+    # 自动检测编码并处理文本
+    response.encoding = response.apparent_encoding
+    return response.text.splitlines()
+
+
+def get_cloudflare_data():
+    """从cloudflare上获取数据"""
+    url = "https://saa.undownding.dev/api/config"
+    response = fetch_url(url)
+    if isinstance(response, dict):
+        return response
+    if response.status_code != 200:
+        return {"error": f"请求失败，状态码: {response.status_code}"}
     try:
-        # 处理可能的编码问题
-        response.encoding = response.apparent_encoding  # 自动检测编码
-        # 按行分割文本
-        lines = response.text.splitlines()
-        return lines
+        return response.json()
     except Exception as e:
-        print(f"发生错误: {str(e)}")
-        traceback.print_exc()
+        return {"error": f"解析JSON失败: {e}"}
+
+def get_start_arguments(start_path, start_model):
+    """
+    自动判断是什么服，什么启动器，返回对应的启动参数
+    :param start_path: 启动路径，由用户提供，可以在启动器查看
+    :param start_model: 由用户设置，在SAA设置中选服
+    :return:
+    """
+    # 统一进入game文件夹
+    user_dir = os.path.join(start_path, 'game').replace('\\', '/')
+    arg = None
+    # 国服新版启动命令
+    if start_model == 0:
+        if has_folder_in_path(start_path, "Temp"):
+            arg = [
+                "-FeatureLevelES31",
+                "-ChannelID=jinshan",
+                '-userdir=' + user_dir,
+                '--launcher-language="en"',
+                '--launcher-channel="CBJQos"',
+                '--launcher-gamecode="cbjq"'
+            ]
+        else:
+            # 国服旧版启动命令
+            # self.start_path = D:\Game\尘白禁区\Snow\data
+            arg = [
+                "-FeatureLevelES31",
+                "-ChannelID=jinshan",
+                '-userdir=' + user_dir
+            ]
+    # b服启动命令
+    # self.start_path = E:\Snow\data
+    elif start_model == 1:
+        arg = [
+            "-FeatureLevelES31",
+            "-ChannelID=bilibili",
+            '-userdir=' + user_dir
+        ]
+    # 国际服启动命令
+    # E:\SteamLibrary\steamapps\common\SNOWBREAK
+    elif start_model == 2:
+        arg = [
+            "-FeatureLevelES31",
+            "-channelid=seasun",
+            "steamapps"
+        ]
+    return arg
+
+
+def has_folder_in_path(path, dir_name):
+    """
+    判断指定路径是否包含名为 dir_name 的文件夹（区分大小写）
+    :param path: 要检查的路径
+    :param dir_name: 要检查的文件夹名字
+    :return: bool: 如果包含 dir_name 文件夹返回 True，否则返回 False
+    """
+    try:
+        path = Path(path)
+        for item in path.iterdir():
+            if item.is_dir() and item.name == dir_name:
+                return True
+        return False
+    except Exception as e:
+        print(f"检查子文件夹出错:{e}")
+        return False
+
+
+def is_exist_snowbreak():
+    if config.server_interface.value != 2:
+        game_name = '尘白禁区'
+        game_class = 'UnrealWindow'
+    else:
+        game_name = 'Snowbreak: Containment Zone'  # 国际服
+        game_class = 'UnrealWindow'
+    return get_hwnd(game_name, game_class)
+
+
+def get_local_version(file_path="update_data.txt"):
+    """
+        从txt文件中读取第二行的版本信息
+
+        参数:
+            file_path (str): txt文件路径
+
+        返回:
+            str: 版本信息字符串
+        """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            # 读取所有行
+            lines = file.readlines()
+            # 检查是否有至少两行
+            if len(lines) >= 2:
+                # 返回第二行并去除前后空白字符
+                return lines[1].strip()
+            else:
+                print("文件行数不足，没有版本信息")
+                return None
+    except FileNotFoundError:
+        print(f"{file_path}文件未找到")
+        return None
+    except Exception as e:
+        print(f"读取文件时出错: {str(e)}")
         return None
 
 
 if __name__ == "__main__":
-    get_hsv((124, 174, 235))
-    get_hsv((112, 165, 238))
+    # get_hsv((124, 174, 235))
+    # get_hsv((112, 165, 238))
     # get_hsv((205, 202, 95))
     # get_hsv((209,207, 96))
+    get_cloudflare_data()

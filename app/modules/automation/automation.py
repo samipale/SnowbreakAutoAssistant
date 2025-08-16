@@ -2,9 +2,12 @@ import functools
 import math
 import threading
 import time
+from datetime import datetime, timedelta
 
 import cv2
 import win32gui
+import win32clipboard
+import win32con
 
 from app.common.config import config
 from app.common.image_utils import ImageUtils
@@ -87,6 +90,33 @@ class Automation:
         self.press_key = self.input_handler.press_key
         self.key_down = self.input_handler.key_down
         self.key_up = self.input_handler.key_up
+
+    def type_string(self, text):
+        """
+        向句柄窗口粘贴文本内容
+        :param text: 需要粘贴的字符串
+        :return:
+        """
+        win32clipboard.OpenClipboard()
+
+        try:
+            # 设置剪贴板内容
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardText(text, win32con.CF_UNICODETEXT)
+
+            time.sleep(0.3)
+
+            # 激活目标窗口
+            # win32gui.SetForegroundWindow(self.hwnd)
+
+            # 发送粘贴命令 (Shift+Insert)
+            win32gui.PostMessage(self.hwnd, win32con.WM_KEYDOWN, win32con.VK_SHIFT, 0)
+            win32gui.PostMessage(self.hwnd, win32con.WM_KEYDOWN, win32con.VK_INSERT, 0)
+            win32gui.PostMessage(self.hwnd, win32con.WM_KEYUP, win32con.VK_INSERT, 0)
+            win32gui.PostMessage(self.hwnd, win32con.WM_KEYUP, win32con.VK_SHIFT, 0)
+        finally:
+            # 关闭剪贴板
+            win32clipboard.CloseClipboard()
 
     def get_hwnd(self):
         """根据传入的窗口名和类型确定可操作的句柄"""
@@ -251,17 +281,17 @@ class Automation:
         return None, None, None
 
     @atoms
-    def perform_ocr(self, extract: list = None, image=None, allowlist=None, is_log=False):
+    def perform_ocr(self, extract: list = None, image=None, is_log=False):
         """执行OCR识别，并更新OCR结果列表。如果未识别到文字，保留ocr_result为一个空列表。"""
         try:
             # image=None时
             if image is None:
                 # ImageUtils.show_ndarray(self.current_screenshot)
-                self.ocr_result = ocr.run(self.current_screenshot, extract, is_log=is_log, allowlist=allowlist)
+                self.ocr_result = ocr.run(self.current_screenshot, extract, is_log=is_log)
             # 传入特定的图片进行ocr识别
             else:
                 # ImageUtils.show_ndarray(image)
-                self.ocr_result = ocr.run(image, extract, is_log=is_log, allowlist=allowlist)
+                self.ocr_result = ocr.run(image, extract, is_log=is_log)
             if not self.ocr_result:
                 # self.logger.info(f"未识别出任何文字")
                 self.ocr_result = []
@@ -363,7 +393,7 @@ class Automation:
             # 不截图的时候做相应的裁切，使外部可以不写参数
             if self.current_screenshot is not None:
                 # 更新当前裁切后的截图和相对位置坐标
-                # ImageUtils.show_ndarray(self.current_screenshot, 'before_current')
+                # ImageUtils.show_ndarray(self.first_screenshot, 'before_current')
                 self.current_screenshot, self.relative_pos = ImageUtils.crop_image(self.first_screenshot, crop,
                                                                                    self.hwnd)
                 # ImageUtils.show_ndarray(self.current_screenshot, 'after_current')
@@ -517,11 +547,10 @@ class Automation:
         return crop_image
 
     @atoms
-    def read_text_from_crop(self, crop=(0, 0, 1, 1), extract=None, is_screenshot=False, allowlist=None, is_log=False):
+    def read_text_from_crop(self, crop=(0, 0, 1, 1), extract=None, is_screenshot=False, is_log=False):
         """
         通过crop找对应的文本内容
         :param is_log:
-        :param allowlist: 限制 OCR 模型识别的字符集
         :param crop: 查找区域
         :param extract: 指定提取背景
         :param is_screenshot: 是否截图
@@ -531,41 +560,9 @@ class Automation:
             self.take_screenshot()
         crop_image, _ = ImageUtils.crop_image(self.first_screenshot, crop, self.hwnd)
         # ImageUtils.show_ndarray(crop_image)
-        self.perform_ocr(image=crop_image, extract=extract, allowlist=allowlist, is_log=is_log)
+        self.perform_ocr(image=crop_image, extract=extract, is_log=is_log)
         return self.ocr_result
 
-    # @atoms
-    # def find_image_and_count(self, target, template, threshold=0.6, extract=None):
-    #     """在屏幕截图中查找与目标图片相似的图片，并计算匹配数量。
-    #
-    #     参数:
-    #     - target: 背景图片。
-    #     - template: 模板图片。
-    #     - threshold: 匹配阈值。
-    #     - extract: 是否提取目标颜色，[(对应的rgb颜色),threshold数值]
-    #
-    #     返回:
-    #     - 匹配的数量，或在出错时返回 None。
-    #     """
-    #     try:
-    #         if isinstance(target, str):
-    #             target = cv2.imread(target)
-    #         if isinstance(template, str):
-    #             template = cv2.imread(template)
-    #         # 将图片从BGR格式转换为RGB格式
-    #         target_rgb = cv2.cvtColor(target, cv2.COLOR_BGR2RGB)
-    #         template_rgb = cv2.cvtColor(template, cv2.COLOR_BGR2RGB)
-    #         if extract is not None:
-    #             rbg = extract[0]
-    #             thr = extract[1]
-    #             target_rgb = ImageUtils.extract_letters(target_rgb, rbg, thr)
-    #             template_rgb = ImageUtils.extract_letters(template, rbg, thr)
-    #
-    #         return ImageUtils.count_template_matches(target_rgb, template_rgb, threshold)
-    #     except Exception as e:
-    #         # print(traceback.format_exc())
-    #         self.logger.error(f"寻找图片并计数出错：{e}")
-    #         return None
     @atoms
     def find_image_and_count(self, target, template: str, threshold=0.6, extract=None, is_show=False, is_log=False):
         """在屏幕截图中查找与目标图片相似的图片，并计算匹配数量。
@@ -612,6 +609,36 @@ class Automation:
         except Exception as e:
             # print(traceback.format_exc())
             self.logger.error(f"寻找图片并计数出错：{e}")
+            return None
+
+    def calculate_power_time(self):
+        """
+        识别并计算当前体力值，然后计算出恢复时间
+        :return: 返回体力回满的时间字符串
+        """
+        ocr_result = self.read_text_from_crop(crop=(900 / 1920, 0, 1076 / 1920, 70 / 1080))
+        try:
+            text = ocr_result[0][0]
+            if "/" in text:
+                num = int(text.split("/")[0])
+                # 获取当前时间
+                now = datetime.now()
+                if num >= 240:
+                    return now.strftime('%m-%d %H:%M')
+                # 计算要增加的分钟数
+                minutes_to_add = max(0, 6 * (240 - num))
+
+                # 计算未来时间
+                future_time = now + timedelta(minutes=minutes_to_add)
+                # 格式化为 '月-日 时:分' 的字符串
+                formatted_time = future_time.strftime('%m-%d %H:%M')
+
+                return formatted_time
+            else:
+                self.logger.error(f"识别结果出错：{text}")
+                return None
+        except Exception as e:
+            self.logger.error(f"未识别出体力：{e}")
             return None
 
 

@@ -1,12 +1,10 @@
 import ctypes
-import time
-import traceback
 
-import win32con
+import cv2
+import numpy as np
 import win32gui
 import win32ui
-import numpy as np
-import cv2
+import win32con
 
 from app.common.image_utils import ImageUtils
 from app.common.logger import logger
@@ -69,7 +67,7 @@ def auto_crop_image(img):
 
 
 class Screenshot:
-    _screenshot_interval = Timer(0.1)
+    _screenshot_interval = Timer(0.01)
 
     def __init__(self, logger=None):
         self.base_width = 1920
@@ -103,10 +101,13 @@ class Screenshot:
             self._screenshot_interval.reset()
             # 获取带标题的窗口尺寸
             left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-            # print(left, top, right, bottom)
+
             w = right - left
             h = bottom - top
-            # print(w, h)
+
+            client_rect = win32gui.GetClientRect(hwnd)
+            client_width = client_rect[2] - client_rect[0]
+            client_height = client_rect[3] - client_rect[1]
 
             # 获取设备上下文
             hwnd_dc = win32gui.GetWindowDC(hwnd)
@@ -127,26 +128,6 @@ class Screenshot:
             bmpstr = bitmap.GetBitmapBits(True)
             # img_size = np.frombuffer(bmpstr, dtype=np.uint8).size
             img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
-            # # 取平均颜色
-            # color = cv2.mean(img)
-            # # 如果是启动器且全黑
-            # if is_starter and color == (17.0, 16.0, 15.0, 255.0):
-            #     # 最小化窗口
-            #     win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
-            #     time.sleep(0.01)  # 等待一下
-            #     # 恢复窗口
-            #     win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-            #     time.sleep(0.3)
-            #     # 置低窗口
-            #     win32gui.SetWindowPos(hwnd, win32con.HWND_BOTTOM, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-            #     user32 = ctypes.windll.user32
-            #     # 启动器0,1,2均可以，但是游戏窗口必须要是2,0和1都是黑屏，2: 捕捉包括窗口的边框、标题栏以及整个窗口的内容
-            #     user32.PrintWindow(hwnd, save_dc.GetSafeHdc(), 2)  # PW_RENDERFULLCONTENT=2
-            #
-            #     # 转换为 numpy 数组
-            #     bmpinfo = bitmap.GetInfo()
-            #     bmpstr = bitmap.GetBitmapBits(True)
-            #     img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
 
             # 释放资源
             win32gui.DeleteObject(bitmap.GetHandle())
@@ -157,10 +138,10 @@ class Screenshot:
             # OpenCV 处理
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
             if not is_fullscreen(hwnd):
-                img = img[40:, :, :]
-                h -= 40
                 # ImageUtils.show_ndarray(img)
-                img = auto_crop_image(img)
+                img = img[40:-9, 9:-9, :]
+                # ImageUtils.show_ndarray(img)
+                # img = auto_crop_image(img)
             img_crop, relative_pos = ImageUtils.crop_image(img, crop, hwnd)
 
             # 缩放图像以自适应分辨率图像识别
@@ -168,11 +149,10 @@ class Screenshot:
                 scale_x = 1
                 scale_y = 1
             else:
-                scale_x = self.base_width / w
-                scale_y = self.base_height / h
+                # 需要除以用户区域（无标题）才是正确的比例
+                scale_x = self.base_width / client_width
+                scale_y = self.base_height / client_height
 
-            # win32api.SetCursorPos((left+screenshot_pos[0], top+screenshot_pos[1]))
-            # ImageUtils.show_ndarray(img_resized)
             return img_crop, scale_x, scale_y, relative_pos
         except Exception as e:
             # print(traceback.format_exc())
@@ -184,7 +164,7 @@ if __name__ == '__main__':
     # 替换成你的游戏窗口标题
     game_window = "尘白禁区"
     screen = Screenshot(logger=logger)
-    hwnd = screen.get_window('BrownDust II')
+    hwnd = screen.get_window(game_window)
     result = screen.screenshot(hwnd, (0, 0, 1, 1), False)
 
     # game_window = "尘白禁区"
@@ -194,7 +174,7 @@ if __name__ == '__main__':
 
     if result is not None:
         img_resized, scale_x, scale_y, screenshot_pos = result
-        print(scale_x, scale_y, screenshot_pos)
+        # print(scale_x, scale_y, screenshot_pos)
         img_resized = auto_crop_image(img_resized)
         cv2.imshow("Game Screenshot", img_resized)
         cv2.waitKey(0)

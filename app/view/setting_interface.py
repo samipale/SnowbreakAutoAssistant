@@ -2,28 +2,23 @@
 import os.path
 import subprocess
 import sys
-import time
-import traceback
 from functools import partial
 
-from qfluentwidgets import (SwitchSettingCard, FolderListSettingCard,
-                            OptionsSettingCard, PushSettingCard,
-                            HyperlinkCard, PrimaryPushSettingCard, ScrollArea,
-                            ComboBoxSettingCard, ExpandLayout, Theme, CustomColorSettingCard,
-                            setTheme, setThemeColor, isDarkTheme, setFont, MessageBox, ProgressBar)
-from qfluentwidgets import FluentIcon as FIF
-from qfluentwidgets import SettingCardGroup as CardGroup
-from qfluentwidgets import InfoBar
-from PyQt5.QtCore import Qt, pyqtSignal, QUrl, QStandardPaths, QThread
+from PyQt5.QtCore import Qt, QUrl, QThread
 from PyQt5.QtGui import QDesktopServices, QFont
-from PyQt5.QtWidgets import QWidget, QLabel, QFileDialog, QProgressBar
+from PyQt5.QtWidgets import QWidget, QLabel
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import InfoBar
+from qfluentwidgets import SettingCardGroup as CardGroup
+from qfluentwidgets import (SwitchSettingCard, PrimaryPushSettingCard, ScrollArea,
+                            ComboBoxSettingCard, ExpandLayout, setTheme, setFont, MessageBox, ProgressBar)
 
-# from updater import Updater
-from ..repackage.text_edit_card import TextEditCard
 from ..common.config import config, isWin11
-from ..common.setting import HELP_URL, FEEDBACK_URL, AUTHOR, YEAR, QQ, VERSION
+from ..common.setting import FEEDBACK_URL, QQ
 from ..common.signal_bus import signalBus
 from ..common.style_sheet import StyleSheet
+from ..common.utils import get_local_version
+from ..repackage.text_edit_card import TextEditCard
 
 
 class UpdatingThread(QThread):
@@ -54,6 +49,15 @@ class SettingInterface(ScrollArea):
 
         self.progressBar = ProgressBar(self)
         self.progressBar.setVisible(False)
+
+        self.app_name = "SAA"
+        # 获取当前应用路径
+        if getattr(sys, 'frozen', False):
+            # 打包后的可执行文件
+            self.app_path = sys.executable
+        else:
+            # 脚本运行模式
+            self.app_path = sys.argv[0]
 
         # setting label
         self.settingLabel = QLabel(self.tr("Settings"), self)
@@ -130,7 +134,7 @@ class SettingInterface(ScrollArea):
         )
         self.isLogCard = SwitchSettingCard(
             FIF.DEVELOPER_TOOLS,
-            self.tr('展示ocr识别结果'),
+            self.tr('展示OCR识别结果'),
             '打开将在日志中显示ocr识别结果，获得更详细的日志信息',
             configItem=config.isLog,
             parent=self.aboutSoftwareGroup
@@ -138,7 +142,7 @@ class SettingInterface(ScrollArea):
         self.showScreenshotCard = SwitchSettingCard(
             FIF.PHOTO,
             self.tr('展示运行时的窗口截图'),
-            '用于在查错时查看是否正确截取了游戏对应位置的画面',
+            '用于在查错时查看是否正确截取了游戏对应位置的画面，截取的所有画面会保存在SAA/temp下，需要手动删除',
             configItem=config.showScreenshot,
             parent=self.aboutSoftwareGroup
         )
@@ -154,6 +158,27 @@ class SettingInterface(ScrollArea):
             self.tr('自动缩放比例'),
             '默认开启，在启动SAA时如果发现游戏窗口比例不是16:9会自动缩放成1920*1080并贴在左上角',
             configItem=config.autoScaling,
+            parent=self.aboutSoftwareGroup
+        )
+        self.autoStartTask = SwitchSettingCard(
+            FIF.PLAY,
+            self.tr('自动开始任务'),
+            '打开SAA自动开始运行日常，必须先勾选并配置好自动打开游戏',
+            configItem=config.auto_start_task,
+            parent=self.aboutSoftwareGroup
+        )
+        self.autoBootStartup = SwitchSettingCard(
+            FIF.POWER_BUTTON,
+            self.tr('开机自启'),
+            '开机时自动打开SAA',
+            configItem=config.auto_boot_startup,
+            parent=self.aboutSoftwareGroup
+        )
+        self.informMessage = SwitchSettingCard(
+            FIF.HISTORY,
+            self.tr('消息通知'),
+            '是否打开体力恢复通知',
+            configItem=config.inform_message,
             parent=self.aboutSoftwareGroup
         )
 
@@ -178,7 +203,7 @@ class SettingInterface(ScrollArea):
             self.tr('Check update'),
             "app/resource/images/logo.png",
             self.tr('About'),
-            "本助手免费开源，当前版本：" + VERSION,
+            "本助手免费开源，当前版本：" + get_local_version(),
             self.aboutGroup
         )
 
@@ -222,6 +247,9 @@ class SettingInterface(ScrollArea):
         self.aboutSoftwareGroup.addSettingCard(self.showScreenshotCard)
         self.aboutSoftwareGroup.addSettingCard(self.saveScaleCacheCard)
         self.aboutSoftwareGroup.addSettingCard(self.autoScaling)
+        self.aboutSoftwareGroup.addSettingCard(self.autoStartTask)
+        self.aboutSoftwareGroup.addSettingCard(self.autoBootStartup)
+        self.aboutSoftwareGroup.addSettingCard(self.informMessage)
 
         self.aboutGroup.addSettingCard(self.feedbackCard)
         self.aboutGroup.addSettingCard(self.proxyCard)
@@ -250,6 +278,7 @@ class SettingInterface(ScrollArea):
         # personalization
         config.themeChanged.connect(setTheme)
         self.micaCard.checkedChanged.connect(signalBus.micaEnableChanged)
+        self.autoBootStartup.checkedChanged.connect(self.set_windows_start)
 
         # check update
         self.aboutCard.clicked.connect(self.check_update)
@@ -257,6 +286,109 @@ class SettingInterface(ScrollArea):
         # about
         self.feedbackCard.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(FEEDBACK_URL)))
+
+    def set_windows_start(self, is_checked):
+        if is_checked:
+            self._enable_windows()
+        else:
+            self._disable_windows()
+
+    def _enable_windows(self):
+        """Windows 启用自启"""
+        try:
+            # 获取应用程序所在目录
+            app_dir = os.path.dirname(self.app_path)
+            cmd_file_path = os.path.join(app_dir, "saa_startup.cmd")
+
+            # 创建 cmd 文件内容
+            cmd_content = f'@echo off\ncd "{app_dir}"\nstart "" "{self.app_path}"'
+
+            # 写入 cmd 文件
+            with open(cmd_file_path, 'w', encoding='utf-8') as f:
+                f.write(cmd_content)
+
+            # 创建计划任务
+            task_command = [
+                'schtasks', '/create',
+                '/tn', f"{self.app_name} 开机自启",  # 任务名称
+                '/tr', f'cmd.exe /c "{cmd_file_path}"',  # 要执行的命令
+                '/sc', 'onlogon',  # 触发条件：用户登录时
+                '/rl', 'highest',  # 使用最高权限
+                '/f'  # 强制创建（如果已存在则覆盖）
+            ]
+
+            result = subprocess.run(task_command, shell=True, check=True,
+                                  capture_output=True, text=True)
+
+            InfoBar.success(
+                '添加自启成功',
+                f'已通过计划任务创建开机自启',
+                isClosable=True,
+                duration=2000,
+                parent=self
+            )
+        except subprocess.CalledProcessError as e:
+            InfoBar.error(
+                '添加自启失败',
+                f"创建计划任务失败：{e.stderr}",
+                isClosable=True,
+                duration=2000,
+                parent=self
+            )
+        except Exception as e:
+            InfoBar.error(
+                '添加自启失败',
+                f"创建启动文件失败：{e}",
+                isClosable=True,
+                duration=2000,
+                parent=self
+            )
+
+    def _disable_windows(self):
+        """Windows 禁用自启"""
+        try:
+            # 删除计划任务
+            result = subprocess.run(['schtasks', '/delete', '/tn', f"{self.app_name} 开机自启", '/f'],
+                                  shell=True, check=True, capture_output=True, text=True)
+
+            # 删除 cmd 文件
+            app_dir = os.path.dirname(self.app_path)
+            cmd_file_path = os.path.join(app_dir, "saa_startup.cmd")
+            if os.path.exists(cmd_file_path):
+                os.remove(cmd_file_path)
+
+            InfoBar.success(
+                '删除自启成功',
+                f'已关闭开机自启',
+                isClosable=True,
+                duration=2000,
+                parent=self
+            )
+        except subprocess.CalledProcessError as e:
+            if "找不到系统指定的" in e.stderr or "cannot find" in e.stderr.lower():
+                InfoBar.warning(
+                    '任务不存在',
+                    f'计划任务可能已被删除',
+                    isClosable=True,
+                    duration=2000,
+                    parent=self
+                )
+            else:
+                InfoBar.error(
+                    '删除自启失败',
+                    f"删除计划任务失败：{e.stderr}",
+                    isClosable=True,
+                    duration=2000,
+                    parent=self
+                )
+        except Exception as e:
+            InfoBar.error(
+                '删除自启失败',
+                f"{e}",
+                isClosable=True,
+                duration=2000,
+                parent=self
+            )
 
     def check_update(self):
         pass

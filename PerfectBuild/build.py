@@ -62,7 +62,7 @@ class PerfectBuild:
         if not self.build_dir.exists():
             self.build_dir.mkdir()
         self.release_dir = Path.joinpath(
-            self.app_dir, "release", f"{self.app_ver}{self.mode}"
+            self.app_dir, "release", f"{self.app_ver}-{self.mode}"
         )
         if not self.release_dir.exists():
             if not self.release_dir.parent.exists():
@@ -103,20 +103,20 @@ class PerfectBuild:
             "--include-data-file=patch/scipy.libs/.load-order-scipy-1.10.1=scipy.libs/.load-order-scipy-1.10.1",
             "--include-data-file=patch/shapely.libs/.load-order-shapely-2.0.7=shapely.libs/.load-order-shapely-2.0.7",
             "--include-data-file=AppData/ocr_replacements.json=AppData/ocr_replacements.json",
-            "--include-data-file=AppData/version.txt=AppData/version.txt",
             "--include-data-dir=app/resource/images=app/resource/images",
             "--include-data-file=docs/help.md=docs/help.md",
+            "--include-data-file=update_data.txt=update_data.txt",
             "--include-data-dir=asset=asset",
-            "--include-data-dir=app/resource/easyocr=app/resource/easyocr",
+            "--include-data-dir=app/modules/onnxocr/models=app/modules/onnxocr/models",
+            "--nofollow-import-to=scipy.stats",
         ]
         if platform.system() == "Windows":
             cmd_args.extend((f"--windows-icon-from-ico={self.app_icon}",))
         # '--windows-console-mode=disable',
         cmd_args.append(f"{self.app_dir}/{self.app_exec}.py")
-        print(cmd_args)
         process = subprocess.run(cmd_args, shell=True)
         if process.returncode != 0:
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             raise ChildProcessError("Nuitka building failed.")
         print("Nuitka Building done.")
 
@@ -199,7 +199,7 @@ class PerfectBuild:
         file_list.sort()
         portable_file = (
                 self.release_dir
-                / f"{self.app_exec}-{self.app_ver}{self.mode}-Portable-{self.system}-{self.arch}.zip"
+                / f"{self.app_exec}-{self.app_ver}-{self.mode}-Portable-{self.system}-{self.arch}.zip"
         )
         print("Creating portable package...")
         with ZipFile(portable_file, "w", compression=ZIP_DEFLATED) as zf:

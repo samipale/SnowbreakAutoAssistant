@@ -35,7 +35,7 @@ LicenseFile={#MyProjectDir}\LICENSE
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 OutputDir={#MyReleaseDir}
-OutputBaseFilename={#MyAppName}-{#MyAppVersion}{#MyAppMode}-Setup-Windows-{#MyArch}
+OutputBaseFilename={#MyAppName}-{#MyAppVersion}-{#MyAppMode}-Setup-Windows-{#MyArch}
 SetupIconFile={#MyBuildDir}\\{#MySystem}-{#MyArch}\\{#MyDist}\\{#MyAppIcon}
 Compression=lzma
 SolidCompression=yes
@@ -59,7 +59,7 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec runascurrentuser waituntilidle postinstall skipifsilent; Verb: runas
  
 [Code]
 { ///////////////////////////////////////////////////////////////////// }

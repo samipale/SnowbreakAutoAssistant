@@ -63,7 +63,7 @@ class EnterGameModule:
 
     def handle_game(self):
         """处理游戏窗口部分"""
-        timeout = Timer(30).start()
+        timeout = Timer(180).start()
         while True:
             # 截图
             self.auto.take_screenshot()
@@ -73,20 +73,22 @@ class EnterGameModule:
                 break
             # 对不同情况进行处理
             if self.auto.find_element('基地', 'text', crop=(
-            1598 / 1920, 678 / 1080, 1661 / 1920, 736 / 1080)) and self.auto.find_element(
-                    '任务', 'text', crop=(1452 / 1920, 327 / 1080, 1529 / 1920, 376 / 1080), is_log=self.is_log):
+                    1598 / 1920, 678 / 1080, 1661 / 1920, 736 / 1080)) and self.auto.find_element(
+                '任务', 'text', crop=(1452 / 1920, 327 / 1080, 1529 / 1920, 376 / 1080), is_log=self.is_log):
                 self.logger.info("已进入游戏")
                 break
-            # b服登录
-            if self.auto.click_element('登录', 'text', crop=(1198 / 2560, 835 / 1440, 1365 / 2560, 889 / 1440),
-                                       is_log=self.is_log):
-                time.sleep(1)
-                continue
 
             if self.auto.click_element(['游戏', '开始'], 'text', crop=(852 / 1920, 920 / 1080, 1046 / 1920, 981 / 1080),
                                        is_log=self.is_log):
                 time.sleep(2)
                 continue
+            # 看到尘白禁区但是没看到开始游戏可以直接点尘白禁区跳过账号登录等待的那几秒
+            if self.auto.click_element(['尘白禁区', '尘白', '禁区'], 'text',
+                                       crop=(812 / 1920, 814 / 1080, 1196 / 1920, 923 / 1080),
+                                       is_log=self.is_log):
+                time.sleep(1)
+                continue
+
             if self.auto.click_element(['X', 'x'], 'text', crop=(1271 / 1920, 88 / 1080, 1890 / 1920, 367 / 1080),
                                        is_log=self.is_log):
                 continue

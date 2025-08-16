@@ -3,17 +3,17 @@ import datetime
 import os.path
 import re
 import subprocess
+import sys
 import threading
 import time
-
 import cv2
 import numpy as np
 from PyQt5.QtCore import QSize, QTimer, QThread, Qt
-from PyQt5.QtGui import QIcon, QColor, QImage, QPixmap
+from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QApplication, QFrame
-from qfluentwidgets import FluentIcon as FIF, SystemThemeListener, isDarkTheme, MessageBox, Dialog
-from qfluentwidgets import NavigationItemPosition, MSFluentWindow, SplashScreen, MessageBoxBase, SubtitleLabel, \
-    BodyLabel, NavigationBarPushButton, FlyoutView, Flyout, setThemeColor
+from qfluentwidgets import FluentIcon as FIF, SystemThemeListener, isDarkTheme, MessageBox
+from qfluentwidgets import NavigationItemPosition, MSFluentWindow, SplashScreen, NavigationBarPushButton, FlyoutView, \
+    Flyout, setThemeColor
 
 from .additional_features import Additional
 from .help import Help
@@ -26,10 +26,11 @@ from ..common.icon import Icon
 from ..common.logger import logger
 from ..common.matcher import matcher
 from ..common.signal_bus import signalBus
+from ..common.utils import get_start_arguments, get_gitee_text, get_local_version, get_cloudflare_data
 from ..modules.ocr import ocr
 from ..repackage.custom_message_box import CustomMessageBox
 from ..ui.display_interface import DisplayInterface
-from ..common import resource
+from ..common import resource  # don't delete
 
 
 class InstallOcr(QThread):
@@ -80,21 +81,36 @@ class MainWindow(MSFluentWindow):
         ocr_thread = threading.Thread(target=self.init_ocr)
         ocr_thread.daemon = True
         ocr_thread.start()
-        if config.CheckBox_auto_open_starter.value:
-            self.open_starter()
-        if config.checkUpdateAtStartUp.value:
-            # QTimer.singleShot(100, lambda: self.check_update())
-            # 当采用其他线程调用时，需要保证messageBox是主线程调用的，使用信号槽机制在主线程调用 QMessageBox
-            update_thread = threading.Thread(target=self.check_update)
-            update_thread.start()
 
-    def open_starter(self):
-        starter_path = config.LineEdit_starter_directory.value
+        # 如果勾选了自动打开游戏并且自动开始任务
+        if config.auto_start_task.value or '--auto' in sys.argv:
+            if self.homeInterface.CheckBox_open_game_directly.isChecked():
+                if config.LineEdit_game_directory.value == './':
+                    logger.warn(f"未配置游戏路径，请先根据教程配置路径")
+                else:
+                    logger.info(f"开始自动运行日常")
+                    self.homeInterface.on_start_button_click()
+            else:
+                logger.warn(f'未勾选"自动打开游戏"')
+
+    def open_game_directly(self):
+        """直接启动游戏"""
+        # 用户提供的能在启动器找到的路径
+        start_path = config.LineEdit_game_directory.value
+        start_path = start_path.replace("/", "\\")
+        game_channel = config.server_interface.value
+        exe_path = os.path.join(start_path, r'game\Game\Binaries\Win64\Game.exe')
         try:
-            subprocess.Popen(starter_path)
-            logger.debug(f'打开 {starter_path} 成功')
+            launch_args = get_start_arguments(start_path, game_channel)
+            if not launch_args:
+                logger.error(f"游戏启动失败未找到对应参数，start_path：{start_path}，game_channel:{game_channel}")
+                return
+            else:
+                # 尝试以管理员权限运行
+                subprocess.Popen([exe_path] + launch_args)
+                logger.debug(f'正在启动 {exe_path} {launch_args}')
         except FileNotFoundError:
-            logger.error(f'没有找到对应启动器: {starter_path}')
+            logger.error(f'没有找到对应文件: {exe_path}')
         except Exception as e:
             logger.error(f'出现报错: {e}')
 
@@ -200,7 +216,7 @@ class MainWindow(MSFluentWindow):
         view = FlyoutView(
             title="赞助作者",
             content="如果这个助手帮助到你，可以考虑赞助作者一杯奶茶(>ω･* )ﾉ",
-            image="app/resource/images/support.jpg",
+            image="asset/support.jpg",
             isClosable=True,
         )
         view.widgetLayout.insertSpacing(1, 5)
@@ -317,10 +333,6 @@ class MainWindow(MSFluentWindow):
         # retry
         if self.isMicaEffectEnabled():
             QTimer.singleShot(100, lambda: self.windowEffect.setMicaEffect(self.winId(), isDarkTheme()))
-
-    def check_update(self):
-        # logger.warn('当前测试版还没写更新功能')
-        pass
 
     def showMessageBox(self, title, content):
         massage = MessageBox(title, content, self)

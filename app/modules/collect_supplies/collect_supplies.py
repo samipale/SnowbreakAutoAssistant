@@ -224,6 +224,7 @@ class CollectSuppliesModule:
             if timeout.reached():
                 self.logger.error("领取宿舍拼图超时")
                 break
+
         self.auto.back_to_home()
 
     def redeem_code(self):

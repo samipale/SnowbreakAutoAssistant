@@ -262,17 +262,6 @@ class UsePowerModule:
                     if self.auto.click_element('等级提升', 'text', crop=(1080 / 1920, 350 / 1080, 1350 / 1920, 440 / 1080),
                                                is_log=self.is_log):
                         continue
-                    if self.auto.click_element('最大', 'text', crop=(1221 / 1920, 679 / 1080, 1354 / 1920, 756 / 1080),
-                                               is_log=self.is_log):
-                        pass
-                    if self.auto.click_element('开始作战', 'text',
-                                               crop=(868 / 1920, 808 / 1080, 1046 / 1920, 865 / 1080),
-                                               is_log=self.is_log):
-                        time.sleep(0.5)
-                        continue
-                    if self.auto.click_element('深渊', 'text', crop=chasm_pos, n=50, is_log=self.is_log):
-                        time.sleep(0.7)
-                        continue
             if timeout.reached():
                 self.logger.error("使用体力超时")
                 break

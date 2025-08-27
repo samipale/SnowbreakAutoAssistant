@@ -1,6 +1,5 @@
 import os
 import re
-import json
 from pathlib import Path
 
 import cpufeature
@@ -258,8 +257,6 @@ def get_date_from_api(url=None):
         current_index += 1
 
     if len(result_dict) != 0:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../Appdata/activity_date.json'), 'w') as f:
-            json.dump(result_dict, f, indent=4)
         return result_dict
     else:
         return {"error": f"未匹配到任何活动。检查 {url} 是否正确"}

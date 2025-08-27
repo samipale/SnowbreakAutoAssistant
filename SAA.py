@@ -2,9 +2,9 @@
 import os
 import sys
 import time
-import ctypes
 
 from win11toast import toast
+
 from PyQt5.QtCore import Qt, QTranslator
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QApplication
@@ -14,6 +14,7 @@ from app.common.config import config
 from app.view.main_window import MainWindow
 
 # 检查是否为管理员权限，如果不是则启动管理员权限
+import ctypes
 if not ctypes.windll.shell32.IsUserAnAdmin():
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
     sys.exit()

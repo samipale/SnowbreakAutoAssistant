@@ -1,14 +1,9 @@
 # coding:utf-8
 import os
 import sys
+import time
 import ctypes
 
-# 检查是否为管理员权限，如果不是则启动管理员权限
-if not ctypes.windll.shell32.IsUserAnAdmin():
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-    sys.exit()
-
-import time
 from win11toast import toast
 from PyQt5.QtCore import Qt, QTranslator
 from PyQt5.QtGui import QFont
@@ -17,6 +12,11 @@ from qfluentwidgets import FluentTranslator
 
 from app.common.config import config
 from app.view.main_window import MainWindow
+
+# 检查是否为管理员权限，如果不是则启动管理员权限
+if not ctypes.windll.shell32.IsUserAnAdmin():
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    sys.exit()
 
 # 切换到脚本目录
 os.chdir(os.path.dirname(os.path.abspath(__file__)))  

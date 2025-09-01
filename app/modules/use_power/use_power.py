@@ -270,12 +270,14 @@ class UsePowerModule:
                         self.auto.click_element_with_pos((int(980 / self.auto.scale_x), int(851 / self.auto.scale_y)))
                         time.sleep(0.5)
                         continue
+
                     if self.auto.click_element('速战', 'text', crop=(1368 / 1920, 963 / 1080, 1592 / 1920, 1),
                                                is_log=self.is_log):
                         time.sleep(1)
                         continue
                     if self.auto.click_element('完成', 'text', crop=(880 / 1920, 968 / 1080, 1033 / 1920, 1024 / 1080),
                                                is_log=self.is_log):
+                        time.sleep(0.5)
                         continue
                     if self.auto.click_element('等级提升', 'text', crop=(1080 / 1920, 350 / 1080, 1350 / 1920, 440 / 1080),
                                                is_log=self.is_log):
